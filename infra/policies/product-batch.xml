@@ -1,0 +1,18 @@
+<!--
+  Product policy: tier-batch (long completions, batch summarisation, agentic loops)
+  read timeout 600s. buffer-response="false" so client cancellations propagate.
+-->
+<policies>
+  <inbound>
+    <base />
+  </inbound>
+  <backend>
+    <forward-request timeout="600" buffer-response="false" />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

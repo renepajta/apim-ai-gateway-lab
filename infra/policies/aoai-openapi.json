@@ -1,0 +1,125 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Azure OpenAI (multi-backend)",
+    "version": "2024-10-21",
+    "description": "Subset of the Azure OpenAI Inference API exposed via APIM with multi-backend load balancing + circuit breaker."
+  },
+  "servers": [
+    { "url": "https://placeholder.invalid/openai" }
+  ],
+  "paths": {
+    "/deployments/{deployment-id}/chat/completions": {
+      "post": {
+        "operationId": "ChatCompletions_Create",
+        "summary": "Create a chat completion",
+        "parameters": [
+          { "name": "deployment-id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment-id}/completions": {
+      "post": {
+        "operationId": "Completions_Create",
+        "summary": "Create a completion",
+        "parameters": [
+          { "name": "deployment-id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment-id}/embeddings": {
+      "post": {
+        "operationId": "Embeddings_Create",
+        "summary": "Create embeddings",
+        "parameters": [
+          { "name": "deployment-id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/responses": {
+      "post": {
+        "operationId": "Responses_Create",
+        "summary": "Create a response (Responses API)",
+        "parameters": [
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string", "default": "2025-03-01-preview" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/responses/{response_id}": {
+      "get": {
+        "operationId": "Responses_Get",
+        "summary": "Retrieve a response by id",
+        "parameters": [
+          { "name": "response_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string", "default": "2025-03-01-preview" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      },
+      "delete": {
+        "operationId": "Responses_Delete",
+        "summary": "Delete a response by id",
+        "parameters": [
+          { "name": "response_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "api-version", "in": "query", "required": true, "schema": { "type": "string", "default": "2025-03-01-preview" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    }
+  }
+}

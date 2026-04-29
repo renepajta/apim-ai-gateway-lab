@@ -1,0 +1,31 @@
+---
+title: 7. Semantic cache — repeat prompt → tokens to zero
+---
+flowchart LR
+    C["Caller"] -->|"prompt P"| G
+    subgraph G["APIM AI Gateway"]
+        L1["azure-openai-<br/>semantic-cache-lookup<br/>vary-by=Subscription.Id<br/>score-threshold=0.5"]
+        L2["azure-openai-<br/>semantic-cache-store<br/>duration=3600"]
+    end
+    G --> E["text-embedding-3-small<br/>(vector for P)"]
+    E --> R[("Redis<br/>vector store")]
+    R -. "miss (call#1)" .-> G
+    G -->|"forward"| B["AOAI gpt-4o"]
+    B -->|"response"| G
+    G --> L2
+    L2 --> R
+    G -->|"call#1: 200 t≈2.8s<br/>tokens billed"| C
+
+    R -. "hit (call#2)" .-> G
+    G -->|"call#2: 200 t≈1.0s<br/><b>0 tokens billed</b>"| C
+
+    note["✅ the embedded assistant UI canned questions<br/>= direct token-bill saver"]
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    classDef cache fill:#FFB900,stroke:#8A6914,color:#000
+    class C client
+    class L1,L2 gw
+    class B,E be
+    class R cache
+    class note cache

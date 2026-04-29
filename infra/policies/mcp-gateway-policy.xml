@@ -1,0 +1,64 @@
+<!--
+  MCP Gateway policy (passthrough)
+  - Rate-limit by subscription key: 60 calls / minute
+  - Adds x-apim-mcp-trace-id correlation header
+  - Emits App Insights custom metric mcp.calls{server, tool}
+  - Forward-compatible: when APIM ships native MCP apiType, swap api type and keep policy.
+-->
+<policies>
+  <inbound>
+    <base />
+    <set-backend-service backend-id="mcp-server-stub" />
+
+    <!-- 60/min per subscription -->
+    <rate-limit-by-key calls="60" renewal-period="60"
+                      counter-key="@(context.Subscription?.Id ?? context.Request.IpAddress)" />
+
+    <!-- Correlation id propagated to backend and surfaced in response (outbound) -->
+    <set-variable name="mcpTraceId" value="@(Guid.NewGuid().ToString())" />
+    <set-header name="x-apim-mcp-trace-id" exists-action="override">
+      <value>@((string)context.Variables["mcpTraceId"])</value>
+    </set-header>
+
+    <!-- Best-effort tool extraction from MCP JSON-RPC body for metric dimension -->
+    <set-variable name="mcpTool" value="@{
+      try {
+        var body = context.Request.Body?.As<string>(preserveContent: true);
+        if (string.IsNullOrEmpty(body)) { return "none"; }
+        var jo = Newtonsoft.Json.Linq.JObject.Parse(body);
+        var method = (string)jo["method"];
+        if (jo["params"] != null &amp;&amp; jo["params"]["name"] != null) {
+          return (string)jo["params"]["name"];
+        }
+        return method ?? "unknown";
+      } catch { return "unparsed"; }
+    }" />
+  </inbound>
+
+  <backend>
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+    <set-header name="x-apim-mcp-trace-id" exists-action="override">
+      <value>@((string)context.Variables["mcpTraceId"])</value>
+    </set-header>
+    <emit-metric name="mcp.calls" value="1" namespace="ai-gateway">
+      <dimension name="server" value="mcp-server-stub" />
+      <dimension name="tool" value="@((string)context.Variables.GetValueOrDefault("mcpTool","unknown"))" />
+    </emit-metric>
+  </outbound>
+
+  <on-error>
+    <base />
+    <!-- Surface trace id even when the backend errored so callers can correlate -->
+    <set-header name="x-apim-mcp-trace-id" exists-action="override">
+      <value>@((string)context.Variables.GetValueOrDefault<string>("mcpTraceId", Guid.NewGuid().ToString()))</value>
+    </set-header>
+    <emit-metric name="mcp.calls" value="1" namespace="ai-gateway">
+      <dimension name="server" value="mcp-server-stub" />
+      <dimension name="tool" value="error" />
+    </emit-metric>
+  </on-error>
+</policies>

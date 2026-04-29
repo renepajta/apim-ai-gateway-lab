@@ -1,0 +1,16 @@
+<!--
+  Tier: LONG-BATCH (offline summarisation, document extraction, evals)
+  Total upstream budget: 600 seconds (10 min) - matches today's global timeout.
+  Bound to APIM Product "tier-batch". Should NOT be the default product.
+-->
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="tierName" value="long-batch" />
+  </inbound>
+  <backend>
+    <forward-request timeout="600" fail-on-error-status-code="true" buffer-request-body="false" />
+  </backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

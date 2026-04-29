@@ -1,0 +1,24 @@
+---
+title: 8. Content Safety — block at the gateway, not after token spend
+---
+flowchart LR
+    C["Caller"] -->|"unsafe prompt"| G
+    subgraph G["APIM AI Gateway"]
+        S["llm-content-safety<br/>(jailbreak / hate / violence /<br/>sexual / self-harm)"]
+    end
+    G -- "score >= threshold" --> X["❌ 403<br/>Request failed<br/>content safety check<br/>t≈1.5s"]
+    G -. "benign" .-> B["AOAI"]
+    X --> C
+
+    note["✅ Inline guardrail before<br/>any token spend or PTU draw"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    classDef bad fill:#D13438,stroke:#A4262C,color:#fff
+    classDef good fill:#107C10,stroke:#0B5C0B,color:#fff
+    class C client
+    class S gw
+    class B be
+    class X bad
+    class note good

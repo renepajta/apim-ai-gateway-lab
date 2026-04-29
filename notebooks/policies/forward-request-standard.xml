@@ -1,0 +1,16 @@
+<!--
+  Tier: STANDARD (chat, RAG, agentic single-turn)
+  Total upstream budget: 60 seconds. Default for most callers.
+  Bound to APIM Product "tier-standard".
+-->
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="tierName" value="standard" />
+  </inbound>
+  <backend>
+    <forward-request timeout="60" fail-on-error-status-code="true" buffer-request-body="false" />
+  </backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

@@ -1,0 +1,31 @@
+---
+title: 13. Per-tenant token chargeback — emit-token-metric → App Insights
+---
+flowchart LR
+    subgraph T["tenant platform tenants"]
+        T1["Tenant A<br/>KEY_FAST"]
+        T2["Tenant B<br/>KEY_STANDARD"]
+        T3["Tenant C<br/>KEY_BATCH"]
+    end
+    T1 --> G
+    T2 --> G
+    T3 --> G
+    subgraph G["APIM AI Gateway"]
+        E["azure-openai-emit-token-metric<br/>namespace='aigateway'<br/>dims: subscription-id,<br/>backend-id, model, streaming"]
+    end
+    G --> AI[("App Insights<br/>customMetrics<br/>tokens.prompt, tokens.completion")]
+    AI --> K["Kusto query:<br/>customMetrics<br/>| summarize sum(value)<br/>by subscription-id, model"]
+    K --> W["Workbook:<br/>Tokens / tenant / day<br/>+ €/£/$ per tenant"]
+    W --> CB["tenant platform chargeback<br/>(per-tenant invoice)"]
+
+    note["✅ Native APIM metric<br/>= zero-code chargeback dimension"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef obs fill:#FFB900,stroke:#8A6914,color:#000
+    classDef good fill:#107C10,stroke:#0B5C0B,color:#fff
+    class T1,T2,T3 client
+    class E gw
+    class AI,K,W obs
+    class CB good
+    class note good

@@ -1,0 +1,18 @@
+---
+title: 5. Pain C — Client-cancel propagation (PTU saver)
+---
+sequenceDiagram
+    participant C as the embedded assistant UI UI
+    participant G as APIM Gateway<br/>buffer-response=false
+    participant B as Azure OpenAI<br/>(PTU/PAYG)
+
+    C->>G: POST /chat/completions (stream)
+    G->>B: forward-request
+    B-->>G: token 1
+    G-->>C: token 1
+    B-->>G: token 2
+    Note over C: User clicks cancel<br/>(or HTTP/2 RST)
+    C--xG: TCP close / RST
+    G--xB: ❌ connection close<br/>propagated upstream
+    Note over B: PTU/quota released<br/>immediately
+    Note over C,B: ✅ No tokens billed<br/>for response no one is reading

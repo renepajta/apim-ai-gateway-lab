@@ -1,0 +1,46 @@
+---
+title: APIM v3 — policy-pipeline zoom (one request, end to end)
+---
+flowchart LR
+    REQ["Caller request<br/><code>POST /openai/.../chat/completions</code><br/><i>api-key: K-FAST</i>"]:::caller
+
+    subgraph IN["Inbound (per-API)"]
+        direction TB
+        I1["validate sub-key<br/>resolve product → tier-fast"]:::apim
+        I2["llm-token-limit<br/>per-tenant TPM"]:::apim
+        I3["llm-content-safety<br/>(MI → cs-lab-aigw)"]:::apim
+        I4["llm-semantic-cache-lookup<br/>score-threshold=0.5"]:::optional
+        I5["sticky-cache-lookup<br/>rsp:&lt;previous_response_id&gt;"]:::optional
+        I1 --> I2 --> I3 --> I4 --> I5
+    end
+
+    subgraph BACKEND["Backend selection"]
+        direction TB
+        CB["circuit-breaker<br/>count=5/PT1M, trip PT1M<br/>acceptRetryAfter=true"]:::apim
+        POOL["pool: aoai-pool<br/>P1: SWC(70) + SWN(30)<br/>P2: FRC(100)"]:::apim
+        FWD["forward-request<br/>connect ≤ 5s<br/>read = per-tier (30/120/600s)<br/>buffer-response=false"]:::apim
+        CB --> POOL --> FWD
+    end
+
+    subgraph OUT["Outbound"]
+        direction TB
+        O1["sticky-cache-store<br/>rsp:&lt;id&gt; → backend"]:::optional
+        O2["llm-semantic-cache-store<br/>embedding → completion"]:::optional
+        O3["emit-token-metric<br/>+ tier, subId, backend"]:::apim
+        O4["set-header<br/>x-aigw-backend<br/>x-aigw-cached<br/>x-fallback-used"]:::apim
+        O1 --> O2 --> O3 --> O4
+    end
+
+    REQ --> IN --> BACKEND --> OUT --> RESP["Caller response"]:::caller
+
+    %% on-error path for MCP
+    CB -. "on-error" .-> ERR["set x-apim-mcp-trace-id<br/><i>(MCP API only)</i>"]:::apim
+    ERR -. "→ caller" .-> RESP
+
+    classDef caller fill:#E5F4FF,stroke:#003A70,stroke-width:2px,color:#003A70
+    classDef apim   fill:#DEECF9,stroke:#004578,stroke-width:1.5px,color:#004578
+    classDef optional fill:#F3F2F1,stroke:#605E5C,stroke-width:1.5px,stroke-dasharray:5 5,color:#323130
+
+    style IN      fill:#F4FAFF,stroke:#0078D4,stroke-width:2px
+    style BACKEND fill:#FFF6F0,stroke:#B8651B,stroke-width:2px
+    style OUT     fill:#F4FAFF,stroke:#0078D4,stroke-width:2px

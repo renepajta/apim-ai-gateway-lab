@@ -1,0 +1,199 @@
+<!--
+  AI Gateway API policy (v3) — order matters. APIM evaluates: global -> product -> api -> operation,
+  with <base /> being the parent insertion point.
+
+  Order in inbound:
+    1. base (global)
+    2. extract previous_response_id from JSON body  -> variable "prevId"
+    3. if prevId present:
+         - cache-lookup-value rsp:<prevId>          -> variable "pinnedBackend"
+         - if found: set-backend-service to pinned
+         - if missing: 410 Gone (force client to recreate session)
+       else:
+         - azure-openai-semantic-cache-lookup (vector lookup against Redis)
+         - llm-content-safety (harm + prompt-shield)
+         - set-backend-service backend-id="aoai-pool" + record "backend-id" var
+    4. token rate limit (5000 TPM per APIM subscription)
+    5. emit-token-metric with dims subscription-id, backend-id, model, streaming
+    6. strip caller Authorization / api-key, inject MI bearer
+
+  buffer-response="false" on each product's forward-request ensures HTTP/2 RST or
+  client TCP close propagates to AOAI as a connection close, releasing PTU/quota
+  immediately rather than after the full response is buffered.
+-->
+<policies>
+  <inbound>
+    <base />
+
+    <!-- ======== 1. Extract previous_response_id from body (if any) =========== -->
+    <set-variable name="prevId" value="@{
+      try {
+        var raw = context.Request.Body.As<string>(preserveContent: true);
+        if (string.IsNullOrEmpty(raw)) { return null; }
+        var j = Newtonsoft.Json.Linq.JObject.Parse(raw);
+        return (string)j["previous_response_id"];
+      } catch { return null; }
+    }" />
+
+    <set-variable name="streaming" value="@{
+      try {
+        var raw = context.Request.Body.As<string>(preserveContent: true);
+        if (string.IsNullOrEmpty(raw)) { return "false"; }
+        var j = Newtonsoft.Json.Linq.JObject.Parse(raw);
+        var s = j["stream"];
+        return (s != null &amp;&amp; (bool)s) ? "true" : "false";
+      } catch { return "false"; }
+    }" />
+
+    <set-variable name="model" value="@{
+      try {
+        var raw = context.Request.Body.As<string>(preserveContent: true);
+        if (string.IsNullOrEmpty(raw)) { return "unknown"; }
+        var j = Newtonsoft.Json.Linq.JObject.Parse(raw);
+        return (string)(j["model"] ?? "unknown");
+      } catch { return "unknown"; }
+    }" />
+
+    <!-- ======== 2. Session stickiness: pinned backend lookup ================= -->
+    <choose>
+      <when condition="@(!string.IsNullOrEmpty((string)context.Variables["prevId"]))">
+        <cache-lookup-value key="@("rsp:" + (string)context.Variables["prevId"])"
+                            variable-name="pinnedBackend"
+                            caching-type="external" />
+        <choose>
+          <when condition="@(context.Variables.ContainsKey("pinnedBackend") &amp;&amp; !string.IsNullOrEmpty((string)context.Variables["pinnedBackend"]))">
+            <set-variable name="backend-id" value="@((string)context.Variables["pinnedBackend"])" />
+            <set-backend-service backend-id="@((string)context.Variables["pinnedBackend"])" />
+          </when>
+          <otherwise>
+            <return-response>
+              <set-status code="410" reason="Session state expired" />
+              <set-header name="Content-Type" exists-action="override">
+                <value>application/json</value>
+              </set-header>
+              <set-body>{"error":{"code":"session_expired","message":"Pinned backend mapping not found. Recreate session by omitting previous_response_id."}}</set-body>
+            </return-response>
+          </otherwise>
+        </choose>
+      </when>
+      <otherwise>
+        <!-- New session: try semantic cache first (skipped when prevId is set
+             because Responses API must always hit the pinned backend). -->
+        <azure-openai-semantic-cache-lookup
+            score-threshold="0.5"
+            embeddings-backend-id="embeddings-backend"
+            embeddings-backend-auth="system-assigned"
+            ignore-system-messages="true">
+          <vary-by>@(context.Subscription?.Id ?? "anonymous")</vary-by>
+        </azure-openai-semantic-cache-lookup>
+
+        <!-- Inbound content safety (Hate / Violence / SelfHarm / Sexual + prompt-shield).
+             MI auth is acquired here so the Content Safety backend call uses the APIM
+             system-assigned identity (Cognitive Services User on cs-lab-aigw-REPLACEME). -->
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" ignore-error="false" />
+        <llm-content-safety backend-id="content-safety-backend" shield-prompt="true">
+          <categories output-type="EightSeverityLevels">
+            <category name="Hate" threshold="4" />
+            <category name="Violence" threshold="4" />
+            <category name="SelfHarm" threshold="4" />
+            <category name="Sexual" threshold="4" />
+          </categories>
+        </llm-content-safety>
+
+        <!-- Route to the load-balanced pool. We record the pool id as backend-id;
+             the actual physical backend chosen is stored on outbound for stickiness. -->
+        <set-variable name="backend-id" value="aoai-pool" />
+        <set-backend-service backend-id="aoai-pool" />
+      </otherwise>
+    </choose>
+
+    <!-- ======== 3. Token rate limit per APIM subscription ==================== -->
+    <llm-token-limit
+      counter-key="@(context.Subscription?.Id ?? "anonymous")"
+      tokens-per-minute="5000"
+      estimate-prompt-tokens="true"
+      tokens-consumed-header-name="x-aoai-tokens-consumed"
+      remaining-tokens-header-name="x-aoai-tokens-remaining" />
+
+    <!-- ======== 4. Token usage metrics (namespace=aigateway) ================= -->
+    <azure-openai-emit-token-metric namespace="aigateway">
+      <dimension name="subscription-id" value="@(context.Subscription?.Id ?? "anonymous")" />
+      <dimension name="backend-id" value="@((string)context.Variables.GetValueOrDefault<string>("backend-id", "unknown"))" />
+      <dimension name="model" value="@((string)context.Variables.GetValueOrDefault<string>("model", "unknown"))" />
+      <dimension name="streaming" value="@((string)context.Variables.GetValueOrDefault<string>("streaming", "false"))" />
+    </azure-openai-emit-token-metric>
+
+    <!-- ======== 5. AAD MI auth to AOAI (no shared keys) ====================== -->
+    <set-header name="Authorization" exists-action="delete" />
+    <set-header name="api-key" exists-action="delete" />
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+    <set-header name="Authorization" exists-action="override">
+      <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+    </set-header>
+  </inbound>
+
+  <backend>
+    <!-- product-scoped <forward-request timeout="X" buffer-response="false"/> wins via <base/> -->
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+
+    <!-- Surface chosen backend for demo / debugging -->
+    <set-header name="x-aigw-backend" exists-action="override">
+      <value>@((string)context.Variables.GetValueOrDefault<string>("backend-id", "unknown"))</value>
+    </set-header>
+
+    <!-- ======== Session stickiness: persist responseId -> backend-id ========== -->
+    <choose>
+      <when condition="@(context.Response.StatusCode == 200 &amp;&amp; string.IsNullOrEmpty((string)context.Variables.GetValueOrDefault<string>("prevId","")))">
+        <set-variable name="newRspId" value="@{
+          try {
+            var raw = context.Response.Body.As<string>(preserveContent: true);
+            if (string.IsNullOrEmpty(raw)) { return null; }
+            var j = Newtonsoft.Json.Linq.JObject.Parse(raw);
+            return (string)j["id"];
+          } catch { return null; }
+        }" />
+        <set-header name="x-aigw-newrspid" exists-action="override">
+          <value>@((string)context.Variables.GetValueOrDefault<string>("newRspId","none"))</value>
+        </set-header>
+        <choose>
+          <when condition="@(!string.IsNullOrEmpty((string)context.Variables["newRspId"]))">
+            <cache-store-value
+              key="@("rsp:" + (string)context.Variables["newRspId"])"
+              value="@((string)context.Variables.GetValueOrDefault<string>("backend-id", ""))"
+              duration="3600"
+              caching-type="external" />
+            <set-header name="x-aigw-cached" exists-action="override">
+              <value>stored</value>
+            </set-header>
+          </when>
+        </choose>
+      </when>
+    </choose>
+
+    <!-- Semantic cache store (only when not in pinned-session path) -->
+    <choose>
+      <when condition="@(string.IsNullOrEmpty((string)context.Variables.GetValueOrDefault<string>("prevId","")))">
+        <azure-openai-semantic-cache-store duration="3600" />
+      </when>
+    </choose>
+  </outbound>
+
+  <on-error>
+    <base />
+
+    <!-- Emit a custom metric apim.cb.trips on circuit breaker / backend failures -->
+    <choose>
+      <when condition="@(context.LastError?.Source == "backend" || context.LastError?.Reason == "BackendConnectionFailure" || context.Response?.StatusCode == 503)">
+        <emit-metric name="apim.cb.trips" value="1" namespace="aigateway">
+          <dimension name="backend-id" value="@((string)context.Variables.GetValueOrDefault<string>("backend-id","unknown"))" />
+          <dimension name="reason" value="@(context.LastError?.Reason ?? "unknown")" />
+          <dimension name="source" value="@(context.LastError?.Source ?? "unknown")" />
+        </emit-metric>
+      </when>
+    </choose>
+  </on-error>
+</policies>

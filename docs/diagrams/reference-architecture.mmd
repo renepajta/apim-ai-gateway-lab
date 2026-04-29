@@ -1,0 +1,148 @@
+---
+title: your AI platform ↔ Azure OpenAI via APIM AI Gateway — v3 (live demo state)
+---
+flowchart TB
+    %% ============ the platform team tenant platform PLANE ============
+    subgraph the platform team["🟦 the platform team tenant platform Plane (per-tier callers, distinct subscription keys)"]
+        direction LR
+        UI["interactive-ui<br/><b>tier-fast</b><br/><i>K-FAST · 30s</i>"]:::the platform team
+        STD["agentic-standard<br/><b>tier-standard</b><br/><i>K-STD · 120s</i>"]:::the platform team
+        BATCH["nightly-batch<br/><b>tier-batch</b><br/><i>K-BATCH · 600s</i>"]:::the platform team
+    end
+
+    %% ============ AZURE APIM AI GATEWAY ============
+    subgraph APIM["🟦 Azure APIM Premium v2 — AI Gateway"]
+        direction TB
+
+        subgraph PROD["APIM Products (per-tier SLA contracts)"]
+            direction LR
+            PFAST["<b>tier-fast</b><br/><code>timeout=30s</code>"]:::apim
+            PSTD["<b>tier-standard</b><br/><code>timeout=120s</code>"]:::apim
+            PBATCH["<b>tier-batch</b><br/><code>timeout=600s</code>"]:::apim
+        end
+
+        subgraph APIS["APIs (siblings under one APIM)"]
+            direction LR
+            AOAIAPI["<b>azure-openai</b><br/><code>/openai/*</code>"]:::apim
+            EXTAPI["<b>external-models</b><br/><code>/external/v1/*</code>"]:::apim
+            MCPAPI["<b>mcp-gateway</b><br/><code>/mcp/*</code><br/>x-apim-mcp-trace-id"]:::apim
+        end
+
+        INGRESS["Inbound<br/><i>HTTP/2 RST forwarded upstream<br/>(client cancel = backend release)</i>"]:::apim
+
+        subgraph IN["Inbound Policies"]
+            AUTH["validate-jwt / sub-key"]:::apim
+            TLIM["llm-token-limit<br/>per tenant platform tenant"]:::apim
+            CSAFE["llm-content-safety<br/>(MI to CS account)"]:::apim
+            SCL["llm-semantic-cache-lookup<br/><i>score-threshold=0.5</i>"]:::optional
+            STKL["sticky-cache-lookup<br/><i>rsp:&lt;previous_response_id&gt;</i>"]:::optional
+        end
+
+        subgraph CB["Multi-condition Circuit Breaker (per backend)"]
+            direction TB
+            R1["<code>rule: failures</code><br/>statusCodes 429+5xx<br/>errorReasons 5xx/Timeout/Conn<br/>count=5/PT1M → trip PT1M<br/>acceptRetryAfter=true"]:::apim
+        end
+
+        FWD["<code>forward-request</code><br/><i>connect ≤ 5s</i><br/><i>read = per-tier</i><br/><i>buffer-response=false</i>"]:::apim
+
+        subgraph OUT["Outbound Policies"]
+            STKS["sticky-cache-store<br/><i>rsp:&lt;id&gt; → backend, TTL 1h</i>"]:::optional
+            SCS["llm-semantic-cache-store<br/><i>embedding → completion, TTL 1h</i>"]:::optional
+            METRIC["azure-openai-emit-token-metric<br/><i>tier · subId · backend · cb.trips · cache.hit</i>"]:::apim
+            HDR["set-header<br/><code>x-aigw-backend</code><br/><code>x-aigw-cached</code><br/><code>x-fallback-used</code>"]:::apim
+        end
+
+        INGRESS --> AUTH --> TLIM --> CSAFE --> SCL --> STKL
+        STKL --> AOAIAPI
+        STKL --> EXTAPI
+        STKL --> MCPAPI
+        AOAIAPI --> CB
+        EXTAPI --> CB
+        MCPAPI --> CB
+        CB --> FWD
+        FWD --> STKS --> SCS --> METRIC --> HDR
+
+        PFAST -.-> AOAIAPI
+        PSTD  -.-> AOAIAPI
+        PBATCH -.-> AOAIAPI
+    end
+
+    %% ============ REDIS (split caches) ============
+    subgraph REDIS["🟪 Azure Cache for Redis"]
+        direction TB
+        SESS["<b>Session affinity cache</b><br/><code>rsp:* keys</code><br/>TTL 1h<br/><i>backed by sticky-cache-{lookup,store}</i>"]:::redis
+        SEM["<b>Semantic cache</b><br/><code>embedding-keyed</code><br/>TTL 1h · score 0.5<br/><i>backed by llm-semantic-cache-*</i>"]:::redis
+    end
+
+    %% ============ CONTENT SAFETY ============
+    CS["🟧 Azure AI Content Safety<br/><b>cs-lab-aigw-REPLACEME</b><br/><i>MI: Cognitive Services User</i>"]:::cs
+
+    %% ============ HEALTH PLANE ============
+    subgraph HP["🟧 Health Plane"]
+        direction TB
+        PROBE["<b>Logic App probe</b><br/>logic-lab-aigw-probe<br/><i>every 30s · max_tokens=1</i>"]:::health
+        AINS["<b>Application Insights</b><br/>appi-lab-aigw-demo<br/><i>p95 latency, probe failure</i>"]:::health
+        ALERT["Alert Rule<br/><i>p95&gt;5s OR fail&gt;3</i>"]:::health
+        AUTO["APIM REST<br/><code>PATCH backend.isReachable</code>"]:::health
+        WB["<b>Workbook</b><br/>tokens.tier ·<br/>tokens.backend ·<br/>cb.trips · cache.hit"]:::health
+        PROBE --> AINS --> ALERT --> AUTO
+        AINS --> WB
+    end
+
+    %% ============ AZURE OPENAI POOL ============
+    subgraph AOAI["🟦 AOAI Pool — priority + weighted"]
+        direction TB
+        SWC["<b>aoai-swc</b><br/>Sweden Central<br/><i>priority 1 · weight 70</i>"]:::aoai
+        SWN["<b>aoai-swn</b><br/>Switzerland North<br/><i>priority 1 · weight 30</i>"]:::aoai
+        FRC["<b>aoai-frc</b><br/>France Central<br/><i>priority 2 · weight 100</i><br/><i>fallback only</i>"]:::aoai
+    end
+
+    %% ============ EXTERNAL ============
+    OPENAI["🟧 api.openai.com<br/><i>direct, /external/v1 origin</i>"]:::ext
+
+    %% ============ FLOWS ============
+    UI    ==>|"K-FAST"| INGRESS
+    STD   ==>|"K-STD"| INGRESS
+    BATCH ==>|"K-BATCH"| INGRESS
+
+    CSAFE ==>|"managed identity"| CS
+    STKL  -. "lookup rsp:&lt;id&gt;" .-> SESS
+    STKS  -. "store rsp:&lt;id&gt;" .-> SESS
+    SCL   -. "lookup embedding" .-> SEM
+    SCS   -. "store embedding"   .-> SEM
+
+    HDR ==>|"managed identity<br/>NO shared keys"| SWC
+    HDR ==>|"managed identity"| SWN
+    HDR -.->|"priority-2 fallback"| FRC
+
+    EXTAPI ==>|"OpenAI direct"| OPENAI
+    OPENAI -. "5xx / 4xx → cross-provider failover<br/><code>x-fallback-used: aoai-gpt-4o</code>" .-> SWC
+
+    PROBE -.->|"GET /health"| SWC
+    PROBE -.->|"GET /health"| SWN
+    PROBE -.->|"GET /health"| FRC
+    AUTO  ==>|"PATCH isReachable"| CB
+    METRIC ==>|"custom metrics"| AINS
+
+    UI -. "client cancel → RST → backend conn released" .-> INGRESS
+
+    %% ============ STYLES ============
+    classDef the platform team     fill:#E5F4FF,stroke:#003A70,stroke-width:1.5px,color:#003A70
+    classDef apim    fill:#DEECF9,stroke:#004578,stroke-width:1.5px,color:#004578
+    classDef aoai    fill:#B4DCF7,stroke:#004578,stroke-width:2px,color:#004578
+    classDef redis   fill:#E8DFF5,stroke:#5C2D91,stroke-width:1.5px,color:#3B1E5E
+    classDef cs      fill:#FFE4B5,stroke:#B8651B,stroke-width:1.5px,color:#5C3A0E
+    classDef health  fill:#FFE4B5,stroke:#B8651B,stroke-width:1.5px,color:#5C3A0E
+    classDef ext     fill:#FFD9D9,stroke:#A4262C,stroke-width:1.5px,color:#5B1A1F
+    classDef optional fill:#F3F2F1,stroke:#605E5C,stroke-width:1.5px,stroke-dasharray:5 5,color:#323130
+
+    style the platform team   fill:#CCE7FF,stroke:#003A70,stroke-width:3px,color:#003A70
+    style APIM  fill:#E1EFFA,stroke:#0078D4,stroke-width:3px,color:#004578
+    style AOAI  fill:#E1EFFA,stroke:#0078D4,stroke-width:3px,color:#004578
+    style REDIS fill:#F1EAF8,stroke:#5C2D91,stroke-width:3px,color:#3B1E5E
+    style HP    fill:#FFF1DC,stroke:#B8651B,stroke-width:3px,color:#5C3A0E
+    style PROD  fill:#F4FAFF,stroke:#0078D4,stroke-width:1px
+    style APIS  fill:#F4FAFF,stroke:#0078D4,stroke-width:1px
+    style IN    fill:#F4FAFF,stroke:#0078D4,stroke-width:1px
+    style OUT   fill:#F4FAFF,stroke:#0078D4,stroke-width:1px
+    style CB    fill:#FFF6F0,stroke:#B8651B,stroke-width:2px

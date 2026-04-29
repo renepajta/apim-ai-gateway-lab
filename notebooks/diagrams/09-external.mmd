@@ -1,0 +1,28 @@
+---
+title: 9. External models — cross-provider failover to AOAI
+---
+flowchart LR
+    C["Caller<br/>KEY_EXT"] -->|"POST /external/v1/chat"| G
+    subgraph G["APIM AI Gateway<br/>external-models API"]
+        S["send-request<br/>mode=new<br/>timeout=30 ignore-error=true"]
+        F["choose: status>=400<br/>→ fallback"]
+    end
+    G --> P1["OpenAI direct<br/>(or Anthropic/...)"]
+    P1 -. "❌ 401 / 429 / 5xx" .-> G
+    G --> F
+    F --> P2["AOAI gpt-4o"]
+    P2 -->|"200"| G
+    G -->|"200 t≈2.6s<br/>x-fallback-used: aoai-gpt-4o"| C
+
+    note["✅ Multi-provider routing<br/>+ AOAI safety net under one API"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    classDef ext fill:#FFB900,stroke:#8A6914,color:#000
+    classDef good fill:#107C10,stroke:#0B5C0B,color:#fff
+    class C client
+    class S,F gw
+    class P1 ext
+    class P2 be
+    class note good

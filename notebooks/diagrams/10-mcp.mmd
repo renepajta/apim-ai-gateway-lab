@@ -1,0 +1,25 @@
+---
+title: 10. MCP gateway — agent-tool routing as a sibling API
+---
+flowchart LR
+    A["Agentic caller<br/>(MCP client)"] -->|"POST /mcp/healthz<br/>+ tools/list, tools/call"| G
+    subgraph G["APIM AI Gateway<br/>mcp-gateway API"]
+        T["set-header<br/>x-apim-mcp-trace-id"]
+        AUTH["JWT validation<br/>(future: Entra)"]
+    end
+    G --> M1["MCP server #1<br/>(the platform team S/4 tool)"]
+    G --> M2["MCP server #2<br/>(tenant platform catalog)"]
+    G --> M3["MCP server #N<br/>(future)"]
+
+    G -->|"500 placeholder<br/>+ x-apim-mcp-trace-id"| A
+
+    note["✅ Same gateway, same observability,<br/>same key model — agent + chat unified"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef mcp fill:#8764B8,stroke:#5C2E91,color:#fff
+    classDef good fill:#107C10,stroke:#0B5C0B,color:#fff
+    class A client
+    class T,AUTH gw
+    class M1,M2,M3 mcp
+    class note good

@@ -1,0 +1,18 @@
+<!--
+  Product policy: tier-standard (general LLM workloads)
+  read timeout 120s. buffer-response="false" so client cancellations propagate.
+-->
+<policies>
+  <inbound>
+    <base />
+  </inbound>
+  <backend>
+    <forward-request timeout="120" buffer-response="false" />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

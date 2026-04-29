@@ -1,0 +1,126 @@
+<!--
+  External Models API policy
+  - Routes /chat/completions  -> openai-direct (Authorization: Bearer {{openai-api-key}})
+  - Routes /messages          -> anthropic-direct (x-api-key: {{anthropic-api-key}})
+  - On 5xx from openai-direct: fail over to AOAI gateway (gpt-4o) via send-request,
+    translating the request body shape, and adding x-fallback-used response header.
+  - Emits App Insights custom metric external.calls{provider, status}.
+-->
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="route" value="@(context.Request.Url.Path.ToLower())" />
+    <set-variable name="provider" value="@{
+      var p = (string)context.Variables["route"];
+      if (p.Contains("/chat/completions")) { return "openai"; }
+      if (p.Contains("/messages")) { return "anthropic"; }
+      return "unknown";
+    }" />
+
+    <choose>
+      <when condition="@((string)context.Variables["provider"] == "openai")">
+        <set-backend-service backend-id="openai-direct" />
+        <set-header name="Authorization" exists-action="override">
+          <value>Bearer {{openai-api-key}}</value>
+        </set-header>
+        <!-- Strip the APIM subscription header before forwarding upstream -->
+        <set-header name="api-key" exists-action="delete" />
+      </when>
+      <when condition="@((string)context.Variables["provider"] == "anthropic")">
+        <set-backend-service backend-id="anthropic-direct" />
+        <set-header name="x-api-key" exists-action="override">
+          <value>{{anthropic-api-key}}</value>
+        </set-header>
+        <set-header name="anthropic-version" exists-action="skip">
+          <value>2023-06-01</value>
+        </set-header>
+        <set-header name="api-key" exists-action="delete" />
+      </when>
+      <otherwise>
+        <return-response>
+          <set-status code="404" reason="Unknown route" />
+          <set-body>{"error":"unsupported external route; use /chat/completions or /messages"}</set-body>
+        </return-response>
+      </otherwise>
+    </choose>
+
+    <!-- Cache the original request body for potential failover translation -->
+    <set-variable name="originalBody" value="@(context.Request.Body.As<string>(preserveContent: true))" />
+  </inbound>
+
+  <backend>
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+
+    <!-- Cross-provider failover: any non-2xx from openai-direct -> AOAI gpt-4o.
+         Trigger on >=400 (was >=500) so 401/403/429 also fail over. -->
+    <set-header name="x-ext-origin-status" exists-action="override">
+      <value>@(context.Response.StatusCode.ToString())</value>
+    </set-header>
+    <set-header name="x-ext-provider" exists-action="override">
+      <value>@((string)context.Variables.GetValueOrDefault<string>("provider","unknown"))</value>
+    </set-header>
+    <choose>
+      <when condition="@(((string)context.Variables["provider"] == "openai") && (context.Response.StatusCode >= 400))">
+        <send-request mode="new" response-variable-name="aoaiResp" timeout="30" ignore-error="true">
+          <set-url>https://apim-lab-aigw-demo-REPLACEME.azure-api.net/openai/deployments/chat/chat/completions?api-version=2024-10-21</set-url>
+          <set-method>POST</set-method>
+          <set-header name="api-key" exists-action="override">
+            <value>{{aoai-tier-std-key}}</value>
+          </set-header>
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <!-- OpenAI chat.completions and AOAI chat.completions share the same JSON shape.
+               We just drop "model" if present (AOAI uses deployment in the URL). -->
+          <set-body>@{
+            var body = (string)context.Variables["originalBody"];
+            try {
+              var jo = Newtonsoft.Json.Linq.JObject.Parse(body);
+              if (jo["model"] != null) { jo.Remove("model"); }
+              return jo.ToString();
+            } catch {
+              return body;
+            }
+          }</set-body>
+        </send-request>
+
+        <set-header name="x-ext-fallback-attempted" exists-action="override">
+          <value>true</value>
+        </set-header>
+        <set-header name="x-ext-aoai-status" exists-action="override">
+          <value>@(((IResponse)context.Variables.GetValueOrDefault<IResponse>("aoaiResp")) == null ? "null" : ((IResponse)context.Variables["aoaiResp"]).StatusCode.ToString())</value>
+        </set-header>
+        <choose>
+          <when condition="@(((IResponse)context.Variables["aoaiResp"]) != null && ((IResponse)context.Variables["aoaiResp"]).StatusCode < 400)">
+            <return-response response-variable-name="aoaiResp">
+              <set-header name="x-fallback-used" exists-action="override">
+                <value>aoai-gpt-4o</value>
+              </set-header>
+              <set-header name="x-fallback-origin-status" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("x-ext-origin-status","?"))</value>
+              </set-header>
+            </return-response>
+          </when>
+        </choose>
+      </when>
+    </choose>
+
+    <!-- App Insights custom metric: external.calls{provider,status} -->
+    <emit-metric name="external.calls" value="1" namespace="ai-gateway">
+      <dimension name="provider" value="@((string)context.Variables["provider"])" />
+      <dimension name="status" value="@(context.Response.StatusCode.ToString())" />
+    </emit-metric>
+  </outbound>
+
+  <on-error>
+    <base />
+    <emit-metric name="external.calls" value="1" namespace="ai-gateway">
+      <dimension name="provider" value="@((string)context.Variables.GetValueOrDefault("provider","unknown"))" />
+      <dimension name="status" value="error" />
+    </emit-metric>
+  </on-error>
+</policies>

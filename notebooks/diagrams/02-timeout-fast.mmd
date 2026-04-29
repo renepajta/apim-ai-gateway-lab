@@ -1,0 +1,22 @@
+---
+title: 2. Pain A — timeout-fast (tier-fast 8s cap trips on long generation)
+---
+flowchart LR
+    C["the embedded assistant UI UI<br/>KEY_FAST"] -->|"long-output prompt<br/>(60-row JSONL)"| G
+    subgraph G["APIM AI Gateway"]
+        P1["product: tier-fast<br/><b>forward-request<br/>timeout=8s</b>"]
+    end
+    G -->|"forward"| B["Azure OpenAI<br/>gpt-4o still generating..."]
+    B -. "still streaming<br/>at 8.0s" .-> G
+    G -->|"❌ 500 t≈8.8s<br/>connection cut"| C
+
+    note["✅ Per-tier SLA enforced declaratively<br/>same model, different timeout per product"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    classDef bad fill:#D13438,stroke:#A4262C,color:#fff
+    class C client
+    class P1 gw
+    class B be
+    class note bad

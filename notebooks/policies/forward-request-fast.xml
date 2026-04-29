@@ -1,0 +1,17 @@
+<!--
+  Tier: FAST (interactive UIs, the embedded assistant UI autocomplete, copilots)
+  Total upstream budget: 5 seconds. Anything slower fails fast and frees the worker.
+  Bound to APIM Product "tier-fast" via product-scope policy.
+-->
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="tierName" value="fast" />
+  </inbound>
+  <backend>
+    <!-- 5s total budget, do not retry; circuit breaker handles backend health -->
+    <forward-request timeout="5" fail-on-error-status-code="true" buffer-request-body="false" />
+  </backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

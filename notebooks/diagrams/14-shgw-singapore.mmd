@@ -1,0 +1,33 @@
+---
+title: 14. Self-hosted gateway — APJ edge latency (Singapore)
+---
+flowchart TB
+    subgraph APJ["APJ region (e.g., Singapore)"]
+        TenantSG["Tenant in APJ<br/>Singapore region"]
+        SHGW["APIM Self-Hosted Gateway<br/>(Linux container / AKS)<br/>same policies as cloud"]
+        TenantSG -->|"low-latency<br/>local hop"| SHGW
+    end
+    subgraph CTRL["Control plane (anywhere)"]
+        APIM["APIM Premium v2<br/>(policy + config sync)"]
+    end
+    subgraph EU["Azure OpenAI region (e.g., SWC)"]
+        AOAI["Azure OpenAI<br/>gpt-4o"]
+    end
+
+    APIM -. "policy push<br/>continuous" .-> SHGW
+    SHGW -->|"data plane<br/>(only 1 long-haul hop)"| AOAI
+    AOAI -->|"streamed response"| SHGW
+    SHGW -->|"streamed response"| TenantSG
+
+    note["✅ Same policies, same observability<br/>1 long-haul hop instead of 2-3<br/>= ~80-150ms saved per request<br/>for APJ assistant-UI users"]
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef edge fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef ctrl fill:#8764B8,stroke:#5C2E91,color:#fff
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    classDef good fill:#107C10,stroke:#0B5C0B,color:#fff
+    class TenantSG client
+    class SHGW edge
+    class APIM ctrl
+    class AOAI be
+    class note good

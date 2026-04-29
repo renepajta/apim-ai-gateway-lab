@@ -1,0 +1,23 @@
+---
+title: 1. Baseline call
+---
+flowchart LR
+    C["tenant platform tenant<br/>KEY_FAST"] -->|"POST /chat/completions"| G
+    subgraph G["APIM AI Gateway"]
+        direction TB
+        P1["product: tier-fast<br/>timeout=8s"]
+        P2["llm-token-limit<br/>5000 TPM"]
+        P3["azure-openai-emit-<br/>token-metric"]
+        P4["circuit-breaker<br/>+ priority pool"]
+        P1 --> P2 --> P3 --> P4
+    end
+    G -->|"backend=aoai-pool"| B["Azure OpenAI<br/>gpt-4o (SWC)"]
+    B -->|"200 + tokens"| G
+    G -->|"200 t≈1.5s<br/>x-aigw-backend: aoai-pool"| C
+
+    classDef client fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
+    classDef be fill:#107C10,stroke:#0B5C0B,color:#fff
+    class C client
+    class P1,P2,P3,P4 gw
+    class B be

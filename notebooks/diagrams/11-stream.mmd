@@ -1,0 +1,23 @@
+---
+title: 11. Streaming SSE — the embedded assistant UI-style token-by-token UX
+---
+sequenceDiagram
+    participant C as the embedded assistant UI UI
+    participant G as APIM Gateway<br/>buffer-response=false
+    participant S as Prompt Shield<br/>(inbound)
+    participant B as AOAI gpt-4o<br/>(streaming)
+
+    C->>G: POST /chat/completions<br/>stream:true<br/>Accept: text/event-stream
+    G->>S: scan prompt
+    Note over S: ✅ benign → pass
+    G->>B: forward (SSE)
+    B-->>G: data: {delta: "Streaming "}
+    G-->>C: data: {delta: "Streaming "} (TTFT)
+    B-->>G: data: {delta: "matters "}
+    G-->>C: data: {delta: "matters "}
+    B-->>G: ... ~116 chunks
+    G-->>C: ... ~116 chunks
+    B-->>G: data: [DONE]
+    G-->>C: data: [DONE]
+
+    Note over C,B: ✅ Token-by-token UX preserved end-to-end<br/>buffer-response=false → no batching<br/>cancel mid-stream releases PTU
