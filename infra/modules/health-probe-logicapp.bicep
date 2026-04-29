@@ -2,7 +2,7 @@
 // Active health-probe plane (STUB).
 //
 // What this is: an Azure Logic App (Consumption) with an HTTP-trigger workflow.
-// What it WILL do (out of scope for this PR — see README "Active health probe plane"):
+// What it WILL do (out of scope for this PR, see README "Active health probe plane"):
 //   1. Azure Monitor metric alert (AOAI latency p95 > X OR error rate > Y%) fires.
 //   2. Alert action group calls this workflow's HTTP trigger with the alert payload.
 //   3. Workflow PATCHes the APIM backend resource via ARM REST to flip
@@ -46,7 +46,7 @@ resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
         EchoPayload: {
           type: 'Compose'
           inputs: {
-            note: 'STUB — replace with PATCH on Microsoft.ApiManagement/service/backends/<id> to flip circuit breaker.'
+            note: 'STUB, replace with PATCH on Microsoft.ApiManagement/service/backends/<id> to flip circuit breaker.'
             received: '@triggerBody()'
           }
           runAfter: {}

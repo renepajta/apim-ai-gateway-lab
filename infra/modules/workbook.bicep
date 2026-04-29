@@ -1,10 +1,10 @@
 // =====================================================================================
 // AI Gateway operational workbook
-//   - Tile 1: tokens by tier (last 1h)            — customMetrics, dim subscription-id
-//   - Tile 2: tokens by backend (last 1h)         — customMetrics, dim backend-id
-//   - Tile 3: latency p50/p95 by backend          — APIM Gateway logs (LAW)
-//   - Tile 4: CB trips count                      — customMetrics namespace=aigateway, name=apim.cb.trips
-//   - Tile 5: cache hit ratio                     — APIM Gateway logs (cache hits vs total)
+//   - Tile 1: tokens by tier (last 1h)           , customMetrics, dim subscription-id
+//   - Tile 2: tokens by backend (last 1h)        , customMetrics, dim backend-id
+//   - Tile 3: latency p50/p95 by backend         , APIM Gateway logs (LAW)
+//   - Tile 4: CB trips count                     , customMetrics namespace=aigateway, name=apim.cb.trips
+//   - Tile 5: cache hit ratio                    , APIM Gateway logs (cache hits vs total)
 // =====================================================================================
 targetScope = 'resourceGroup'
 
@@ -22,7 +22,7 @@ var workbookJson = '''
     {
       "type": 1,
       "content": {
-        "json": "# AI Gateway — Operations\nLab demo. Last refreshed automatically by the workbook timeRange picker."
+        "json": "# AI Gateway, Operations\nLab demo. Last refreshed automatically by the workbook timeRange picker."
       },
       "name": "header"
     },
@@ -57,7 +57,7 @@ var workbookJson = '''
         "version": "KqlItem/1.0",
         "query": "customMetrics\n| where customDimensions.namespace == 'aigateway'\n| where name in ('Total Tokens','Prompt Tokens','Completion Tokens')\n| summarize Tokens = sum(valueSum) by Tier = tostring(customDimensions['subscription-id']), bin(timestamp, 1m)\n| render timechart",
         "size": 0,
-        "title": "Tile 1 — tokens by tier (last 1h)",
+        "title": "Tile 1, tokens by tier (last 1h)",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -71,7 +71,7 @@ var workbookJson = '''
         "version": "KqlItem/1.0",
         "query": "customMetrics\n| where customDimensions.namespace == 'aigateway'\n| where name == 'Total Tokens'\n| summarize Tokens = sum(valueSum) by Backend = tostring(customDimensions['backend-id']), bin(timestamp, 1m)\n| render timechart",
         "size": 0,
-        "title": "Tile 2 — tokens by backend (last 1h)",
+        "title": "Tile 2, tokens by backend (last 1h)",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -85,7 +85,7 @@ var workbookJson = '''
         "version": "KqlItem/1.0",
         "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| where Category == 'GatewayLogs'\n| extend BackendId = tostring(BackendId_s), Latency = totalTime_d\n| summarize p50=percentile(Latency,50), p95=percentile(Latency,95) by BackendId, bin(TimeGenerated, 5m)\n| render timechart",
         "size": 0,
-        "title": "Tile 3 — APIM latency p50 / p95 by backend",
+        "title": "Tile 3, APIM latency p50 / p95 by backend",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -99,7 +99,7 @@ var workbookJson = '''
         "version": "KqlItem/1.0",
         "query": "customMetrics\n| where customDimensions.namespace == 'aigateway'\n| where name == 'apim.cb.trips'\n| summarize Trips = sum(valueCount) by Backend = tostring(customDimensions['backend-id']), bin(timestamp, 5m)\n| render columnchart",
         "size": 0,
-        "title": "Tile 4 — circuit breaker trips",
+        "title": "Tile 4, circuit breaker trips",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -113,7 +113,7 @@ var workbookJson = '''
         "version": "KqlItem/1.0",
         "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT' and Category == 'GatewayLogs'\n| extend CacheStatus = tostring(parse_json(Properties_s).CacheStatus)\n| summarize Total = count(), Hits = countif(CacheStatus == 'hit') by bin(TimeGenerated, 5m)\n| extend HitRatio = todouble(Hits) / todouble(Total)\n| project TimeGenerated, HitRatio\n| render timechart",
         "size": 0,
-        "title": "Tile 5 — semantic cache hit ratio",
+        "title": "Tile 5, semantic cache hit ratio",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,

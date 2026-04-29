@@ -1,5 +1,5 @@
 <!--
-  Product policy: tier-fast (intended for chat / the embedded assistant UI short turns)
+  Product policy: tier-fast (intended for chat / the assistant UI short turns)
   read timeout 8s for demo (production tunes to 30s). buffer-response="false" so HTTP/2 RST or client TCP close
   propagates to AOAI as connection close, releasing PTU/quota immediately.
 -->

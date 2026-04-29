@@ -1,5 +1,5 @@
 // =====================================================================================
-// External Models API — OpenAI-direct + Anthropic-direct fronted by APIM
+// External Models API, OpenAI-direct + Anthropic-direct fronted by APIM
 // Cross-provider failover to the AOAI gateway is implemented in policy.
 // =====================================================================================
 
@@ -46,7 +46,7 @@ resource anthropicBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-p
   parent: apim
   name: 'anthropic-direct'
   properties: {
-    description: 'Anthropic public API (api.anthropic.com) — demo declarative only'
+    description: 'Anthropic public API (api.anthropic.com), demo declarative only'
     url: 'https://api.anthropic.com/v1'
     protocol: 'http'
     type: 'Single'

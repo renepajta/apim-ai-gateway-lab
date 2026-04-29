@@ -1,7 +1,7 @@
 // =====================================================================================
 // APIM service + AI Gateway API + 3-tier products + backends + load-balanced pool
 // v3 changes:
-//   - 3rd AOAI backend (Switzerland North) — priority 1 / weight 30 (SWC=70)
+//   - 3rd AOAI backend (Switzerland North), priority 1 / weight 30 (SWC=70)
 //   - FRC moved to priority 2 / weight 100 (active fallback only)
 //   - Multi-rule circuit breaker per backend: rule-5xx, rule-timeout, rule-429
 //   - Embeddings backend for semantic-cache-lookup
@@ -83,7 +83,7 @@ resource apimDiag 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
 }
 
 // =====================================================================================
-// External cache (Redis) — used for both session-stickiness and semantic cache.
+// External cache (Redis), used for both session-stickiness and semantic cache.
 // Note: caches resource takes a connection string. We compose it from the Redis
 // host + the @secure() primary key parameter so no secrets land in the template.
 // =====================================================================================
@@ -148,7 +148,7 @@ resource backendTertiary 'Microsoft.ApiManagement/service/backends@2024-06-01-pr
   parent: apim
   name: 'aoai-swn'
   properties: {
-    description: 'AOAI Switzerland North (priority 1 / weight 30) — 3rd PAYG backend, see modules/aoai.bicep header for region selection trace'
+    description: 'AOAI Switzerland North (priority 1 / weight 30), 3rd PAYG backend, see modules/aoai.bicep header for region selection trace'
     url: '${aoaiTertiaryEndpoint}openai'
     protocol: 'http'
     type: 'Single'
@@ -162,7 +162,7 @@ resource backendSecondary 'Microsoft.ApiManagement/service/backends@2024-06-01-p
   parent: apim
   name: 'aoai-frc'
   properties: {
-    description: 'AOAI France Central (priority 2 / weight 100) — fallback group'
+    description: 'AOAI France Central (priority 2 / weight 100), fallback group'
     url: '${aoaiSecondaryEndpoint}openai'
     protocol: 'http'
     type: 'Single'
@@ -188,7 +188,7 @@ resource backendPool 'Microsoft.ApiManagement/service/backends@2024-06-01-previe
   }
 }
 
-// Embeddings backend — used by azure-openai-semantic-cache-lookup
+// Embeddings backend, used by azure-openai-semantic-cache-lookup
 resource embeddingsBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-preview' = {
   parent: apim
   name: 'embeddings-backend'
@@ -205,7 +205,7 @@ resource embeddingsBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-
   }
 }
 
-// Content Safety backend — used by llm-content-safety policy.
+// Content Safety backend, used by llm-content-safety policy.
 // Auth: APIM MI -> Cognitive Services User on the Content Safety account.
 resource contentSafetyBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-preview' = {
   parent: apim
@@ -267,7 +267,7 @@ resource productFast'Microsoft.ApiManagement/service/products@2024-06-01-preview
   name: 'tier-fast'
   properties: {
     displayName: 'Fast tier (30s)'
-    description: 'Chat / the embedded assistant UI short turns. forward-request timeout 30s.'
+    description: 'Chat / the assistant UI short turns. forward-request timeout 30s.'
     subscriptionRequired: true
     approvalRequired: false
     state: 'published'
@@ -372,7 +372,7 @@ output name string = apim.name
 output gatewayUrl string = apim.properties.gatewayUrl
 output principalId string = apim.identity.principalId
 
-// Per-tier subscription keys — listed via listSecrets so deploy can write them out.
+// Per-tier subscription keys, listed via listSecrets so deploy can write them out.
 #disable-next-line outputs-should-not-contain-secrets
 output subscriptionKeyFast string = subFast.listSecrets().primaryKey
 #disable-next-line outputs-should-not-contain-secrets

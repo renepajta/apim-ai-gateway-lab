@@ -1,5 +1,5 @@
 <!--
-  AI Gateway API policy (v3) — order matters. APIM evaluates: global -> product -> api -> operation,
+  AI Gateway API policy (v3), order matters. APIM evaluates: global -> product -> api -> operation,
   with <base /> being the parent insertion point.
 
   Order in inbound:
@@ -89,7 +89,7 @@
 
         <!-- Inbound content safety (Hate / Violence / SelfHarm / Sexual + prompt-shield).
              MI auth is acquired here so the Content Safety backend call uses the APIM
-             system-assigned identity (Cognitive Services User on cs-lab-aigw-REPLACEME). -->
+             system-assigned identity (Cognitive Services User on cs-aigw). -->
         <authentication-managed-identity resource="https://cognitiveservices.azure.com" ignore-error="false" />
         <llm-content-safety backend-id="content-safety-backend" shield-prompt="true">
           <categories output-type="EightSeverityLevels">

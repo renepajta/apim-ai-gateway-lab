@@ -1,5 +1,5 @@
 // =====================================================================================
-// APIM AI Gateway Lab — main deployment template
+// APIM AI Gateway Lab, main deployment template
 //
 // Provisions:
 //   - 3 PAYG Azure OpenAI backends in 3 regions for active-active failover.
@@ -22,7 +22,7 @@ param primaryLocation string = resourceGroup().location
 @description('Secondary AOAI region.')
 param secondaryLocation string = 'francecentral'
 
-@description('Tertiary AOAI region — chosen by quota probe (see header).')
+@description('Tertiary AOAI region, chosen by quota probe (see header).')
 param tertiaryLocation string = 'switzerlandnorth'
 
 @description('Common tags.')
@@ -71,8 +71,8 @@ module monitoring 'modules/monitoring.bicep' = {
   params: {
     location: primaryLocation
     tags: tags
-    workspaceName: 'law-lab-aigw-demo'
-    appInsightsName: 'appi-lab-aigw-demo'
+    workspaceName: 'law-aigw-lab'
+    appInsightsName: 'appi-aigw-lab'
   }
 }
 
@@ -80,7 +80,7 @@ module monitoring 'modules/monitoring.bicep' = {
 module redis 'modules/redis.bicep' = {
   name: 'redis'
   params: {
-    name: 'redis-lab-aigw-${rand}'
+    name: 'redis-aigw-${rand}'
     location: primaryLocation
     tags: tags
   }
@@ -92,7 +92,7 @@ module redis 'modules/redis.bicep' = {
 module contentSafety 'modules/content-safety.bicep' = {
   name: 'content-safety'
   params: {
-    name: 'cs-lab-aigw-${rand}'
+    name: 'cs-aigw-${rand}'
     location: primaryLocation
     tags: tags
     apimPrincipalId: ''
@@ -103,14 +103,14 @@ module contentSafety 'modules/content-safety.bicep' = {
 // Redis primary key fetched via existing-resource reference inside main.bicep
 // so no secret literal touches the template. APIM module receives it via @secure().
 resource redisExisting 'Microsoft.Cache/redis@2024-03-01' existing = {
-  name: 'redis-lab-aigw-${rand}'
+  name: 'redis-aigw-${rand}'
   dependsOn: [ redis ]
 }
 
 module apim 'modules/apim.bicep' = {
   name: 'apim'
   params: {
-    name: 'apim-lab-aigw-demo-${rand}'
+    name: 'apim-aigw-lab-${rand}'
     location: primaryLocation
     tags: tags
     publisherEmail: publisherEmail
@@ -118,10 +118,10 @@ module apim 'modules/apim.bicep' = {
     appInsightsId: monitoring.outputs.appInsightsId
     appInsightsInstrKey: monitoring.outputs.appInsightsInstrKey
     workspaceId: monitoring.outputs.workspaceId
-    aoaiPrimaryEndpoint: 'https://aoai-lab-aigw-swc-${rand}.openai.azure.com/'
-    aoaiSecondaryEndpoint: 'https://aoai-lab-aigw-frc-${rand}.openai.azure.com/'
-    aoaiTertiaryEndpoint: 'https://aoai-lab-aigw-swn-${rand}.openai.azure.com/'
-    embeddingsAoaiEndpoint: 'https://aoai-lab-aigw-swc-${rand}.openai.azure.com/'
+    aoaiPrimaryEndpoint: 'https://aoai-aigw-swc-${rand}.openai.azure.com/'
+    aoaiSecondaryEndpoint: 'https://aoai-aigw-frc-${rand}.openai.azure.com/'
+    aoaiTertiaryEndpoint: 'https://aoai-aigw-swn-${rand}.openai.azure.com/'
+    embeddingsAoaiEndpoint: 'https://aoai-aigw-swc-${rand}.openai.azure.com/'
     contentSafetyEndpoint: contentSafety.outputs.endpoint
     redisHostName: redisExisting.properties.hostName
     redisSslPort: redisExisting.properties.sslPort
@@ -133,7 +133,7 @@ module apim 'modules/apim.bicep' = {
 module aoaiPrimary 'modules/aoai.bicep' = {
   name: 'aoai-primary'
   params: {
-    name: 'aoai-lab-aigw-swc-${rand}'
+    name: 'aoai-aigw-swc-${rand}'
     location: primaryLocation
     tags: tags
     modelName: modelName
@@ -154,7 +154,7 @@ module aoaiPrimary 'modules/aoai.bicep' = {
 module aoaiSecondary 'modules/aoai.bicep' = {
   name: 'aoai-secondary'
   params: {
-    name: 'aoai-lab-aigw-frc-${rand}'
+    name: 'aoai-aigw-frc-${rand}'
     location: secondaryLocation
     tags: tags
     modelName: modelName
@@ -169,7 +169,7 @@ module aoaiSecondary 'modules/aoai.bicep' = {
 module aoaiTertiary 'modules/aoai.bicep' = {
   name: 'aoai-tertiary'
   params: {
-    name: 'aoai-lab-aigw-swn-${rand}'
+    name: 'aoai-aigw-swn-${rand}'
     location: tertiaryLocation
     tags: tags
     modelName: modelName
@@ -186,7 +186,7 @@ module aoaiTertiary 'modules/aoai.bicep' = {
 module contentSafetyRa 'modules/content-safety.bicep' = {
   name: 'content-safety-ra'
   params: {
-    name: 'cs-lab-aigw-${rand}'
+    name: 'cs-aigw-${rand}'
     location: primaryLocation
     tags: tags
     apimPrincipalId: apim.outputs.principalId
@@ -231,7 +231,7 @@ module workbook 'modules/workbook.bicep' = {
   name: 'workbook'
   params: {
     name: 'wb-lab-aigw-ops-${rand}'
-    displayName: 'AI Gateway — Operations'
+    displayName: 'AI Gateway, Operations'
     location: primaryLocation
     tags: tags
     appInsightsId: monitoring.outputs.appInsightsId

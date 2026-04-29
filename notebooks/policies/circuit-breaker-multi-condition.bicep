@@ -1,5 +1,5 @@
 // Multi-condition circuit breaker for an APIM backend pool member.
-// Today the platform team trips on 429 only. We add 5XX, gateway timeouts, and 429-with-Retry-After.
+// Today most setups trip on 429 only. We add 5XX, gateway timeouts, and 429-with-Retry-After.
 // Rules are additive: ANY rule reaching its failureThreshold trips the breaker.
 
 resource backendSwc 'Microsoft.ApiManagement/service/backends@2023-09-01-preview' = {
@@ -22,7 +22,7 @@ resource backendSwc 'Microsoft.ApiManagement/service/backends@2023-09-01-preview
           acceptRetryAfter: false
         }
         // Rule 2: gateway/upstream timeouts (504 + 408) -> trip after 2 in 60s for 30s
-        // This is the rule the platform team missed in Jan/Feb: AOAI didn't 5XX, it slow-failed
+        // This is the slow-fail rule (provider degraded but still 200): AOAI didn't 5XX, it slow-failed
         // and APIM produced 504s. With this rule, a slow-fail trips the breaker.
         {
           name: 'timeouts'

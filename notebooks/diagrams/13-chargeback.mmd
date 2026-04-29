@@ -1,8 +1,8 @@
 ---
-title: 13. Per-tenant token chargeback — emit-token-metric → App Insights
+title: 13. Per-tenant token chargeback, emit-token-metric → App Insights
 ---
 flowchart LR
-    subgraph T["tenant platform tenants"]
+    subgraph T["tenants"]
         T1["Tenant A<br/>KEY_FAST"]
         T2["Tenant B<br/>KEY_STANDARD"]
         T3["Tenant C<br/>KEY_BATCH"]
@@ -16,7 +16,7 @@ flowchart LR
     G --> AI[("App Insights<br/>customMetrics<br/>tokens.prompt, tokens.completion")]
     AI --> K["Kusto query:<br/>customMetrics<br/>| summarize sum(value)<br/>by subscription-id, model"]
     K --> W["Workbook:<br/>Tokens / tenant / day<br/>+ €/£/$ per tenant"]
-    W --> CB["tenant platform chargeback<br/>(per-tenant invoice)"]
+    W --> CB["platform chargeback<br/>(per-tenant invoice)"]
 
     note["✅ Native APIM metric<br/>= zero-code chargeback dimension"]
 

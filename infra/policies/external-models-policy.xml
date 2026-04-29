@@ -66,7 +66,7 @@
     <choose>
       <when condition="@(((string)context.Variables["provider"] == "openai") && (context.Response.StatusCode >= 400))">
         <send-request mode="new" response-variable-name="aoaiResp" timeout="30" ignore-error="true">
-          <set-url>https://apim-lab-aigw-demo-REPLACEME.azure-api.net/openai/deployments/chat/chat/completions?api-version=2024-10-21</set-url>
+          <set-url>https://apim-aigw-lab.azure-api.net/openai/deployments/chat/chat/completions?api-version=2024-10-21</set-url>
           <set-method>POST</set-method>
           <set-header name="api-key" exists-action="override">
             <value>{{aoai-tier-std-key}}</value>

@@ -2,7 +2,7 @@
 title: 1. Baseline call
 ---
 flowchart LR
-    C["tenant platform tenant<br/>KEY_FAST"] -->|"POST /chat/completions"| G
+    C["tenant<br/>KEY_FAST"] -->|"POST /chat/completions"| G
     subgraph G["APIM AI Gateway"]
         direction TB
         P1["product: tier-fast<br/>timeout=8s"]

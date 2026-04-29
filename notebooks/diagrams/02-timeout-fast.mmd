@@ -1,8 +1,8 @@
 ---
-title: 2. Pain A — timeout-fast (tier-fast 8s cap trips on long generation)
+title: 2. Pain A, timeout-fast (tier-fast 8s cap trips on long generation)
 ---
 flowchart LR
-    C["the embedded assistant UI UI<br/>KEY_FAST"] -->|"long-output prompt<br/>(60-row JSONL)"| G
+    C["the assistant UI UI<br/>KEY_FAST"] -->|"long-output prompt<br/>(60-row JSONL)"| G
     subgraph G["APIM AI Gateway"]
         P1["product: tier-fast<br/><b>forward-request<br/>timeout=8s</b>"]
     end

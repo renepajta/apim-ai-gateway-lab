@@ -1,6 +1,6 @@
 # APIM AI Gateway Lab
 
-End-to-end, opinionated reference for using **Azure API Management** as a governance plane in front of **Azure OpenAI** and other model providers — designed for teams that build a **GenAI platform for tenants** (BYO-key marketplaces, internal AI hubs, multi-tenant assistants, agent/MCP gateways).
+End-to-end, opinionated reference for using **Azure API Management** as a governance plane in front of **Azure OpenAI** and other model providers. Designed for teams that build a **GenAI platform for tenants**: BYO-key marketplaces, internal AI hubs, multi-tenant assistants, agent and MCP gateways.
 
 The lab is **deployable in one command** (`scripts/deploy.ps1`) and **fully testable** end-to-end (`tests/test.ps1 -Scenario all`). Every governance feature ships with a **scenario test**, a **per-scenario diagram**, and a **walkthrough notebook section** explaining the policy, the trade-off, and the production posture.
 
@@ -14,17 +14,17 @@ If you run a generative-AI platform for tenants, you have to solve the same prob
 
 | # | Pain | Without a gateway | With APIM |
 |---|---|---|---|
-| A | Heterogeneous SLAs (chat 8s vs batch 600s) under one global timeout | Cancel valid long jobs **or** wait 10 min on dead chats | **Per-product `forward-request timeout`** — one Product per SLA class |
+| A | Heterogeneous SLAs (chat 8s vs batch 600s) under one global timeout | Cancel valid long jobs **or** wait 10 min on dead chats | **Per-product `forward-request timeout`**: one Product per SLA class |
 | B | Slow-fail (provider degraded but still 200) is not detected | Outages take hours to spot | **Multi-condition circuit breaker** + active health probe |
 | C | Client cancels but the upstream model keeps generating (PTU/PAYG waste) | Pay for tokens nobody reads | **HTTP/2 RST propagation** with `buffer-response="false"` |
-| D | Per-tenant routing logic lives in your proxy code | Forks of the gateway per tenant tier | **Tenant-class → Product mapping** in APIM |
+| D | Per-tenant routing logic lives in your proxy code | Forks of the gateway per tenant tier | **Tenant-class to Product mapping** in APIM |
 | E | Prompt injection / jailbreaks reach the model | Token spend + data exfiltration risk | **`<llm-content-safety shield-prompt="true">`** blocks before forwarding |
-| F | Token chargeback requires log parsing | Custom ETL per tenant | **`azure-openai-emit-token-metric`** with `subscription-id` dim → App Insights |
+| F | Token chargeback requires log parsing | Custom ETL per tenant | **`azure-openai-emit-token-metric`** with `subscription-id` dimension to App Insights |
 | G | Streaming UX needed for assistants | Backend-buffered responses | **SSE pass-through** with `buffer-response="false"` |
 | H | Stateful APIs (Responses API) need session affinity | Sessions break across regions | **External cache (Redis) for session lookup** |
-| I | Same prompt asked twice — pay twice | Wasted tokens / latency | **`azure-openai-semantic-cache-lookup`** on embeddings |
+| I | Same prompt asked twice, pay twice | Wasted tokens / latency | **`azure-openai-semantic-cache-lookup`** on embeddings |
 | J | Beyond Azure OpenAI: external providers + MCP servers | Multiple bespoke gateways | **One APIM, multiple APIs** (`/openai`, `/external/v1`, `/mcp/*`) |
-| K | APJ tenants hit a gateway in EU | 200–300ms wasted per call | **Self-hosted gateway** container in the tenant region |
+| K | APJ tenants hit a gateway in EU | 200-300ms wasted per call | **Self-hosted gateway** container in the tenant region |
 
 The lab demonstrates **all 11** in code you can deploy, modify, and re-run.
 
@@ -34,20 +34,20 @@ The lab demonstrates **all 11** in code you can deploy, modify, and re-run.
 
 ```
 .
-├── infra/                       # Bicep — single-command deploy
+├── infra/                       # Bicep IaC, single-command deploy
 │   ├── main.bicep
 │   ├── modules/                 # APIM, AOAI, Redis, Content Safety, monitoring, workbook
 │   ├── apim/                    # external-models + mcp-gateway APIs
 │   └── policies/                # api-policy.xml, product-*.xml, external/mcp policies
 ├── notebooks/
-│   ├── walkthrough.ipynb        # 18 sections: each pain → policy → test → diagram
+│   ├── walkthrough.ipynb        # 18 sections: each pain, policy, test, diagram
 │   ├── diagrams/                # 14 per-scenario PNGs (sequence + flow)
 │   └── policies/                # standalone policy snippets used in the notebook
 ├── tests/
 │   ├── test_gateway.py          # 12 live scenarios (Python)
 │   └── test.ps1                 # PowerShell wrapper
 ├── scripts/
-│   ├── deploy.ps1               # az login → quota check → bicep → write .demo.env
+│   ├── deploy.ps1               # az login, quota check, bicep, write .demo.env
 │   └── teardown.ps1             # delete RG (no-wait)
 ├── docs/
 │   ├── demo-script.md           # 25-min talk track
@@ -68,7 +68,7 @@ The lab demonstrates **all 11** in code you can deploy, modify, and re-run.
 **Deploy + run tests:**
 
 ```pwsh
-# 1. Provision (10–15 min — APIM is the long pole)
+# 1. Provision (10-15 min, APIM is the long pole)
 .\scripts\deploy.ps1 -ResourceGroup rg-aigw-lab -Location swedencentral
 
 # 2. Run the full test suite against the live gateway
@@ -93,7 +93,7 @@ code notebooks\walkthrough.ipynb
 .\tests\test.ps1 -Scenario cache          # semantic cache (embedding lookup)
 .\tests\test.ps1 -Scenario safety         # content safety blocks unsafe prompt
 .\tests\test.ps1 -Scenario jailbreak      # Prompt Shield blocks indirect injection
-.\tests\test.ps1 -Scenario external       # cross-provider failover OpenAI → AOAI
+.\tests\test.ps1 -Scenario external       # cross-provider failover OpenAI to AOAI
 .\tests\test.ps1 -Scenario mcp            # MCP gateway sibling API
 ```
 
@@ -112,10 +112,10 @@ code notebooks\walkthrough.ipynb
 
 ## Customising
 
-- **Region pinning** — change `primaryLocation`/`secondaryLocation`/`tertiaryLocation` in `infra/main.bicep`.
-- **Model** — `modelName`/`modelVersion` parameters; default `gpt-4o` 2024-11-20.
-- **More tenants/products** — see `notebooks/policies/tenant-products.bicep` for the per-tenant mapping pattern.
-- **Self-hosted gateway** — out of scope for this lab; `notebooks/diagrams/14-shgw-singapore.png` shows the topology and `docs/known-limitations.md` lists the workshop ask.
+- **Region pinning**: change `primaryLocation` / `secondaryLocation` / `tertiaryLocation` in `infra/main.bicep`.
+- **Model**: `modelName` and `modelVersion` parameters; default is `gpt-4o` 2024-11-20.
+- **More tenants and products**: see `notebooks/policies/tenant-products.bicep` for the per-tenant mapping pattern.
+- **Self-hosted gateway**: out of scope for this lab. `notebooks/diagrams/14-shgw-singapore.png` shows the topology and `docs/known-limitations.md` lists the workshop ask.
 
 ---
 
@@ -125,4 +125,4 @@ Issues and PRs welcome. Run `tests/test.ps1 -Scenario all` against your fork bef
 
 ## License
 
-[MIT](LICENSE) — use it, fork it, ship it.
+[MIT](LICENSE). Use it, fork it, ship it.

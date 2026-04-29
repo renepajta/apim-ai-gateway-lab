@@ -1,21 +1,21 @@
 ---
-title: 6. Session stickiness — Responses API two-step
+title: 6. Session stickiness, Responses API two-step
 ---
 sequenceDiagram
-    participant C as the embedded assistant UI chat client
+    participant C as the assistant UI chat client
     participant G as APIM Gateway
     participant R as Redis<br/>(session cache)
     participant B1 as AOAI backend A
     participant B2 as AOAI backend B
 
-    Note over C,B2: 5a — create
+    Note over C,B2: 5a, create
     C->>G: POST /responses (turn 1)
     G->>B1: forward (LB choice)
     B1-->>G: 200 + id=resp_xyz
     G->>R: SET rsp:resp_xyz → backend=A<br/>(TTL 1h)
     G-->>C: 200 + id=resp_xyz
 
-    Note over C,B2: 5b — resume same conversation
+    Note over C,B2: 5b, resume same conversation
     C->>G: POST /responses<br/>previous_response_id=resp_xyz
     G->>R: GET rsp:resp_xyz
     alt session in cache

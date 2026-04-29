@@ -1,12 +1,12 @@
 // Tenant -> Product mapping for declarative isolation.
-// Replaces the platform team's per-tenant code paths in the LLM Proxy with APIM-native config.
+// Replaces per-tenant routing code paths in your gateway with APIM-native config.
 // Each product gets its own policy (timeout tier, rate limit, quota, hedge on/off).
 
 var products = [
   {
     name: 'tier-fast'
     displayName: 'Fast tier (5s budget)'
-    description: 'Interactive UI, the embedded assistant UI autocomplete. Hedge enabled. 30k TPM.'
+    description: 'Interactive UI, the assistant UI autocomplete. Hedge enabled. 30k TPM.'
     state: 'published'
     subscriptionRequired: true
   }
@@ -50,9 +50,9 @@ resource productPolicy 'Microsoft.ApiManagement/service/products/policies@2023-0
 }]
 
 // Example tenant-class subscriptions:
-//   the embedded assistant UI-prod          -> tier-fast    (interactive UI)
-//   the embedded assistant UI-batch-eval    -> tier-batch   (offline runs)
-//   the platform team-build-code-gen  -> tier-standard
+//   the assistant UI-prod          -> tier-fast    (interactive UI)
+//   the assistant UI-batch-eval    -> tier-batch   (offline runs)
+//   build-code-gen  -> tier-standard
 //   isv-partner-x       -> tier-standard with quota
 // Each subscription key carries its tenant identity; APIM enforces tier
 // per request - no code branching in the LLM Proxy.

@@ -1,4 +1,4 @@
-"""APIM AI Gateway Lab — end-to-end gateway test harness.
+"""APIM AI Gateway Lab, end-to-end gateway test harness.
 
 Usage:
     python tests/test_gateway.py --scenario baseline
@@ -32,7 +32,7 @@ import requests
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENV_FILE = REPO_ROOT / ".demo.env"
 if not ENV_FILE.exists():
-    sys.exit(f"Missing {ENV_FILE} — run scripts/deploy.ps1 first.")
+    sys.exit(f"Missing {ENV_FILE}, run scripts/deploy.ps1 first.")
 
 ENV: dict[str, str] = {}
 for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
@@ -146,7 +146,7 @@ def s_timeout_batch() -> int:
 
 def s_cb() -> int:
     banner("cb (multi-condition circuit breaker)")
-    print("MANUAL STEP — break a backend, then this script will fire 6 calls.")
+    print("MANUAL STEP, break a backend, then this script will fire 6 calls.")
     print()
     print("  Break backend (run in a SEPARATE shell BEFORE pressing ENTER):")
     print('    az rest --method PATCH \\')
@@ -155,7 +155,7 @@ def s_cb() -> int:
     print()
     print("  Restore after demo:")
     print(f'    az rest --method PATCH --uri "...backends/aoai-swn?api-version=2024-05-01" \\')
-    print('      --body \'{"properties":{"url":"https://aoai-lab-aigw-swn-REPLACEME.openai.azure.com/openai","protocol":"http"}}\'')
+    print('      --body \'{"properties":{"url":"https://aoai-aigw-swn.openai.azure.com/openai","protocol":"http"}}\'')
     print()
     try:
         input("Press ENTER once aoai-swn is broken to fire 6 calls... ")
@@ -173,7 +173,7 @@ def s_cb() -> int:
         time.sleep(1)
     n200 = sum(1 for s in statuses if s == 200)
     n5xx = sum(1 for s in statuses if 500 <= s <= 599)
-    print(f"  summary: {n200}x200, {n5xx}x5xx (PARTIAL trip is expected — narrate)")
+    print(f"  summary: {n200}x200, {n5xx}x5xx (PARTIAL trip is expected, narrate)")
     return 0  # narrative pass
 
 
@@ -222,7 +222,7 @@ def s_cancel() -> int:
 def s_sticky() -> int:
     banner("sticky (Responses API: create → resume by previous_response_id)")
 
-    # 5a — create
+    # 5a, create
     create_body = {
         "model": ALIAS,
         "input": "Pick a 4-letter codeword and remember it. Reply with just the codeword.",
@@ -247,7 +247,7 @@ def s_sticky() -> int:
             pass
     print(f"  [5a] response_id={rid or '(none)'}")
 
-    # 5b — resume sticky
+    # 5b, resume sticky
     if rid:
         resume_body = {
             "model": ALIAS,
@@ -266,10 +266,10 @@ def s_sticky() -> int:
         print(f"  [5b resume] HTTP={r2.status_code} t={dt2:.3f}s "
               f"x-aigw-backend={r2.headers.get('x-aigw-backend','-')}")
         if r2.status_code == 410:
-            print("  [5b] EXPECTED on Basic Redis: 410 session_expired (graceful caveat — narrate "
+            print("  [5b] EXPECTED on Basic Redis: 410 session_expired (graceful caveat, narrate "
                   "Standard Redis with persistence in production).")
 
-    # 5c — bogus prev_id
+    # 5c, bogus prev_id
     bogus_body = {
         "model": ALIAS,
         "input": "Hello.",
@@ -336,7 +336,7 @@ def s_external() -> int:
 
 
 def s_mcp() -> int:
-    banner("mcp (MCP gateway /healthz — 500 placeholder + x-apim-mcp-trace-id surfaced)")
+    banner("mcp (MCP gateway /healthz, 500 placeholder + x-apim-mcp-trace-id surfaced)")
     t0 = time.time()
     r = requests.get(
         f"{MCP_URL}/healthz",
@@ -350,7 +350,7 @@ def s_mcp() -> int:
 
 
 def s_stream() -> int:
-    banner("stream (SSE: time-to-first-token + tokens streamed → the embedded assistant UI UX)")
+    banner("stream (SSE: time-to-first-token + tokens streamed → the assistant UI UX)")
     url = f"{GATEWAY}{CHAT_PATH}"
     payload = {
         "messages": [
@@ -439,7 +439,7 @@ def main() -> int:
 
     if args.scenario == "all":
         rc = 0
-        # CB requires interactive input — skip in `all` to keep it non-interactive.
+        # CB requires interactive input, skip in `all` to keep it non-interactive.
         order = [k for k in SCENARIOS if k != "cb"]
         for name in order:
             try:
@@ -448,7 +448,7 @@ def main() -> int:
                 print(f"  EXC in {name}: {ex}")
                 rc |= 1
         print()
-        print(f"# all-done rc={rc} (cb skipped — run interactively with --scenario cb)")
+        print(f"# all-done rc={rc} (cb skipped, run interactively with --scenario cb)")
         return rc
 
     return SCENARIOS[args.scenario]()

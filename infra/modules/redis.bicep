@@ -1,5 +1,5 @@
 // =====================================================================================
-// Azure Cache for Redis (Basic, C0) — used by APIM as external cache for:
+// Azure Cache for Redis (Basic, C0), used by APIM as external cache for:
 //   - session-stickiness map (responseId -> backendId, TTL 1h)
 //   - azure-openai-semantic-cache-store / -lookup vector cache backing store
 // 14-day demo: SecurityControl=Ignore exemption applies.

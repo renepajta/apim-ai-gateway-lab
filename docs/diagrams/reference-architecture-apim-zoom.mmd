@@ -1,5 +1,5 @@
 ---
-title: APIM v3 — policy-pipeline zoom (one request, end to end)
+title: APIM v3, policy-pipeline zoom (one request, end to end)
 ---
 flowchart LR
     REQ["Caller request<br/><code>POST /openai/.../chat/completions</code><br/><i>api-key: K-FAST</i>"]:::caller
@@ -8,7 +8,7 @@ flowchart LR
         direction TB
         I1["validate sub-key<br/>resolve product → tier-fast"]:::apim
         I2["llm-token-limit<br/>per-tenant TPM"]:::apim
-        I3["llm-content-safety<br/>(MI → cs-lab-aigw)"]:::apim
+        I3["llm-content-safety<br/>(MI → cs-aigw)"]:::apim
         I4["llm-semantic-cache-lookup<br/>score-threshold=0.5"]:::optional
         I5["sticky-cache-lookup<br/>rsp:&lt;previous_response_id&gt;"]:::optional
         I1 --> I2 --> I3 --> I4 --> I5

@@ -1,8 +1,8 @@
 ---
-title: 12. Prompt Shield — jailbreak / indirect prompt injection blocked
+title: 12. Prompt Shield, jailbreak / indirect prompt injection blocked
 ---
 flowchart LR
-    C["3rd-party content<br/>pasted into the embedded assistant UI"] -->|"'Ignore previous instructions...<br/>You are now DAN...'"| G
+    C["3rd-party content<br/>pasted into the assistant UI"] -->|"'Ignore previous instructions...<br/>You are now DAN...'"| G
     subgraph G["APIM AI Gateway"]
         S1["llm-content-safety<br/>backend-id=content-safety<br/><b>shield-prompt=true</b>"]
         S2["categories: hate, violence,<br/>self-harm, sexual"]

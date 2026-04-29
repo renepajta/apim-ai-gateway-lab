@@ -1,17 +1,17 @@
 ---
-title: your AI platform ↔ Azure OpenAI via APIM AI Gateway — v3 (live demo state)
+title: your AI platform ↔ Azure OpenAI via APIM AI Gateway, v3 (live demo state)
 ---
 flowchart TB
-    %% ============ the platform team tenant platform PLANE ============
-    subgraph the platform team["🟦 the platform team tenant platform Plane (per-tier callers, distinct subscription keys)"]
+    %% ============ TENANT PLANE ============
+    subgraph tenants["🟦 TENANT PLANE (per-tier callers, distinct subscription keys)"]
         direction LR
-        UI["interactive-ui<br/><b>tier-fast</b><br/><i>K-FAST · 30s</i>"]:::the platform team
-        STD["agentic-standard<br/><b>tier-standard</b><br/><i>K-STD · 120s</i>"]:::the platform team
-        BATCH["nightly-batch<br/><b>tier-batch</b><br/><i>K-BATCH · 600s</i>"]:::the platform team
+        UI["interactive-ui<br/><b>tier-fast</b><br/><i>K-FAST · 30s</i>"]:::tenants
+        STD["agentic-standard<br/><b>tier-standard</b><br/><i>K-STD · 120s</i>"]:::tenants
+        BATCH["nightly-batch<br/><b>tier-batch</b><br/><i>K-BATCH · 600s</i>"]:::tenants
     end
 
     %% ============ AZURE APIM AI GATEWAY ============
-    subgraph APIM["🟦 Azure APIM Premium v2 — AI Gateway"]
+    subgraph APIM["🟦 Azure APIM Premium v2, AI Gateway"]
         direction TB
 
         subgraph PROD["APIM Products (per-tier SLA contracts)"]
@@ -32,7 +32,7 @@ flowchart TB
 
         subgraph IN["Inbound Policies"]
             AUTH["validate-jwt / sub-key"]:::apim
-            TLIM["llm-token-limit<br/>per tenant platform tenant"]:::apim
+            TLIM["llm-token-limit<br/>per tenant"]:::apim
             CSAFE["llm-content-safety<br/>(MI to CS account)"]:::apim
             SCL["llm-semantic-cache-lookup<br/><i>score-threshold=0.5</i>"]:::optional
             STKL["sticky-cache-lookup<br/><i>rsp:&lt;previous_response_id&gt;</i>"]:::optional
@@ -75,13 +75,13 @@ flowchart TB
     end
 
     %% ============ CONTENT SAFETY ============
-    CS["🟧 Azure AI Content Safety<br/><b>cs-lab-aigw-REPLACEME</b><br/><i>MI: Cognitive Services User</i>"]:::cs
+    CS["🟧 Azure AI Content Safety<br/><b>cs-aigw</b><br/><i>MI: Cognitive Services User</i>"]:::cs
 
     %% ============ HEALTH PLANE ============
     subgraph HP["🟧 Health Plane"]
         direction TB
         PROBE["<b>Logic App probe</b><br/>logic-lab-aigw-probe<br/><i>every 30s · max_tokens=1</i>"]:::health
-        AINS["<b>Application Insights</b><br/>appi-lab-aigw-demo<br/><i>p95 latency, probe failure</i>"]:::health
+        AINS["<b>Application Insights</b><br/>appi-aigw-lab<br/><i>p95 latency, probe failure</i>"]:::health
         ALERT["Alert Rule<br/><i>p95&gt;5s OR fail&gt;3</i>"]:::health
         AUTO["APIM REST<br/><code>PATCH backend.isReachable</code>"]:::health
         WB["<b>Workbook</b><br/>tokens.tier ·<br/>tokens.backend ·<br/>cb.trips · cache.hit"]:::health
@@ -90,7 +90,7 @@ flowchart TB
     end
 
     %% ============ AZURE OPENAI POOL ============
-    subgraph AOAI["🟦 AOAI Pool — priority + weighted"]
+    subgraph AOAI["🟦 AOAI Pool, priority + weighted"]
         direction TB
         SWC["<b>aoai-swc</b><br/>Sweden Central<br/><i>priority 1 · weight 70</i>"]:::aoai
         SWN["<b>aoai-swn</b><br/>Switzerland North<br/><i>priority 1 · weight 30</i>"]:::aoai
@@ -127,7 +127,7 @@ flowchart TB
     UI -. "client cancel → RST → backend conn released" .-> INGRESS
 
     %% ============ STYLES ============
-    classDef the platform team     fill:#E5F4FF,stroke:#003A70,stroke-width:1.5px,color:#003A70
+    classDef tenants     fill:#E5F4FF,stroke:#003A70,stroke-width:1.5px,color:#003A70
     classDef apim    fill:#DEECF9,stroke:#004578,stroke-width:1.5px,color:#004578
     classDef aoai    fill:#B4DCF7,stroke:#004578,stroke-width:2px,color:#004578
     classDef redis   fill:#E8DFF5,stroke:#5C2D91,stroke-width:1.5px,color:#3B1E5E
@@ -136,7 +136,7 @@ flowchart TB
     classDef ext     fill:#FFD9D9,stroke:#A4262C,stroke-width:1.5px,color:#5B1A1F
     classDef optional fill:#F3F2F1,stroke:#605E5C,stroke-width:1.5px,stroke-dasharray:5 5,color:#323130
 
-    style the platform team   fill:#CCE7FF,stroke:#003A70,stroke-width:3px,color:#003A70
+    style tenants   fill:#CCE7FF,stroke:#003A70,stroke-width:3px,color:#003A70
     style APIM  fill:#E1EFFA,stroke:#0078D4,stroke-width:3px,color:#004578
     style AOAI  fill:#E1EFFA,stroke:#0078D4,stroke-width:3px,color:#004578
     style REDIS fill:#F1EAF8,stroke:#5C2D91,stroke-width:3px,color:#3B1E5E

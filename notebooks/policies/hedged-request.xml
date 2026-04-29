@@ -4,7 +4,7 @@
   second backend. First completion wins; the loser is cancelled by APIM when
   the response is returned to the caller.
 
-  Caveats the platform team must be aware of:
+  Caveats to be aware of:
     - Doubles upstream cost for the hedged window. Apply only to callers that
       explicitly opt-in via x-aigw-hedge: true OR via a dedicated Product.
     - Idempotency: chat completions with stream=false are safe; non-idempotent

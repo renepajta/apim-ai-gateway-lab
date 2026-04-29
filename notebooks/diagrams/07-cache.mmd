@@ -1,5 +1,5 @@
 ---
-title: 7. Semantic cache — repeat prompt → tokens to zero
+title: 7. Semantic cache, repeat prompt → tokens to zero
 ---
 flowchart LR
     C["Caller"] -->|"prompt P"| G
@@ -19,7 +19,7 @@ flowchart LR
     R -. "hit (call#2)" .-> G
     G -->|"call#2: 200 t≈1.0s<br/><b>0 tokens billed</b>"| C
 
-    note["✅ the embedded assistant UI canned questions<br/>= direct token-bill saver"]
+    note["✅ the assistant UI canned questions<br/>= direct token-bill saver"]
     classDef client fill:#0078D4,stroke:#005A9E,color:#fff
     classDef gw fill:#50E6FF,stroke:#0078D4,color:#000
     classDef be fill:#107C10,stroke:#0B5C0B,color:#fff

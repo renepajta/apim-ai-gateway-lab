@@ -1,5 +1,5 @@
 // =====================================================================================
-// MCP Gateway API — passthrough HTTP API in front of an MCP server.
+// MCP Gateway API, passthrough HTTP API in front of an MCP server.
 // APIM native MCP support is experimental as of 2026-04; this implementation governs
 // HTTP transport for MCP servers (rate-limit, auth, observability) and is forward-
 // compatible with future native MCP apiType.
@@ -8,7 +8,7 @@
 @description('Name of the existing APIM service.')
 param apimName string
 
-@description('MCP backend URL. Placeholder — operator updates post-deploy.')
+@description('MCP backend URL. Placeholder, operator updates post-deploy.')
 param mcpBackendUrl string = 'https://mcp.contoso.invalid'
 
 @description('Common tags.')
@@ -28,7 +28,7 @@ resource mcpBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-preview
   parent: apim
   name: 'mcp-server-stub'
   properties: {
-    description: 'MCP server (placeholder — swap via az apim backend update post-deploy)'
+    description: 'MCP server (placeholder, swap via az apim backend update post-deploy)'
     url: mcpBackendUrl
     protocol: 'http'
     type: 'Single'
