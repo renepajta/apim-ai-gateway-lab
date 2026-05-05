@@ -235,6 +235,7 @@ module workbook 'modules/workbook.bicep' = {
     location: primaryLocation
     tags: tags
     appInsightsId: monitoring.outputs.appInsightsId
+    workspaceId: monitoring.outputs.workspaceId
   }
 }
 
