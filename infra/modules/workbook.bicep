@@ -5,6 +5,11 @@
 //   - Tile 3: latency p50/p95 by backend         , APIM Gateway logs (LAW)
 //   - Tile 4: CB trips count                     , customMetrics namespace=aigateway, name=apim.cb.trips
 //   - Tile 5: cache hit ratio                    , APIM Gateway logs (cache hits vs total)
+//
+// Note: tiles 3 and 5 query AzureDiagnostics, which lives in the Log Analytics workspace,
+// not in App Insights. Those two tiles use resourceType=microsoft.operationalinsights/workspaces
+// + crossComponentResources to point at the LAW directly. The other tiles stay on the
+// App Insights component so customMetrics resolves natively.
 // =====================================================================================
 targetScope = 'resourceGroup'
 
@@ -14,6 +19,8 @@ param location string
 param tags object
 @description('App Insights resource id (used as workbook source).')
 param appInsightsId string
+@description('Log Analytics workspace resource id (target for APIM gateway log tiles).')
+param workspaceId string
 
 var workbookJson = '''
 {
@@ -83,13 +90,14 @@ var workbookJson = '''
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| where Category == 'GatewayLogs'\n| extend BackendId = tostring(BackendId_s), Latency = totalTime_d\n| summarize p50=percentile(Latency,50), p95=percentile(Latency,95) by BackendId, bin(TimeGenerated, 5m)\n| render timechart",
+        "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT' and Category == 'GatewayLogs'\n| where isnotempty(backendId_s)\n| summarize p50=percentile(backendTime_d,50), p95=percentile(backendTime_d,95) by BackendId=backendId_s, bin(TimeGenerated, 5m)\n| render timechart",
         "size": 0,
-        "title": "Tile 3, APIM latency p50 / p95 by backend",
+        "title": "Tile 3, APIM backend latency p50 / p95",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
-        "resourceType": "microsoft.insights/components"
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [ "__WORKSPACE_ID__" ]
       },
       "name": "t3"
     },
@@ -111,13 +119,14 @@ var workbookJson = '''
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT' and Category == 'GatewayLogs'\n| extend CacheStatus = tostring(parse_json(Properties_s).CacheStatus)\n| summarize Total = count(), Hits = countif(CacheStatus == 'hit') by bin(TimeGenerated, 5m)\n| extend HitRatio = todouble(Hits) / todouble(Total)\n| project TimeGenerated, HitRatio\n| render timechart",
+        "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT' and Category == 'GatewayLogs'\n| where isnotempty(cache_s)\n| summarize Total = count(), Hits = countif(cache_s == 'hit') by bin(TimeGenerated, 5m)\n| extend HitRatio = todouble(Hits) / todouble(Total)\n| project TimeGenerated, HitRatio\n| render timechart",
         "size": 0,
         "title": "Tile 5, semantic cache hit ratio",
         "timeContext": { "durationMs": 3600000 },
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
-        "resourceType": "microsoft.insights/components"
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [ "__WORKSPACE_ID__" ]
       },
       "name": "t5"
     }
@@ -127,6 +136,8 @@ var workbookJson = '''
 }
 '''
 
+var workbookSerialized = replace(workbookJson, '__WORKSPACE_ID__', workspaceId)
+
 resource wb 'Microsoft.Insights/workbooks@2023-06-01' = {
   name: guid(resourceGroup().id, name)
   location: location
@@ -134,7 +145,7 @@ resource wb 'Microsoft.Insights/workbooks@2023-06-01' = {
   kind: 'shared'
   properties: {
     displayName: displayName
-    serializedData: workbookJson
+    serializedData: workbookSerialized
     sourceId: appInsightsId
     category: 'workbook'
     version: '1.0'
